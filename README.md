@@ -8,3 +8,4 @@ A tiny Python script (`example.py`) that calls OpenAI’s chat API to generate a
    ```bash
    cd shopdon
 "# shopdon" 
+"# shopdon" 
