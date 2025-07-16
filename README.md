@@ -7,3 +7,4 @@ A tiny Python script (`example.py`) that calls OpenAI’s chat API to generate a
 1. Clone or download this folder:
    ```bash
    cd shopdon
+"# shopdon" 
