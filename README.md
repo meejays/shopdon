@@ -1,3 +1,6 @@
+Commit directly to the main branch
+ci: trigger workflow on main
+
 # shopdon
 
 A tiny Python script (`example.py`) that calls OpenAI’s chat API to generate a one-sentence bedtime story.
