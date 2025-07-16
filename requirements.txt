@@ -1,0 +1,8 @@
+openai
+typer[all]
+loguru
+pydantic
+tenacity
+prometheus_client
+pytest
+python-dotenv

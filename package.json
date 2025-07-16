@@ -1,0 +1,17 @@
+{
+  "name": "shopdon",
+  "version": "1.0.0",
+  "description": "A tiny Python script (`example.py`) that calls OpenAI’s chat API to generate a one-sentence bedtime story.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^17.2.0",
+    "openai": "^5.9.0"
+  }
+}
