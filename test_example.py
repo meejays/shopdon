@@ -1,70 +1,74 @@
-# example.py
+# test_example.py
 
-import os
-import sys
-import asyncio
-import logging
-
+import pytest
+from typer.testing import CliRunner
 import openai
-import typer
+import example
 
-app = typer.Typer()
+runner = CliRunner()
 
-# Default dummy story for mock mode
-DEFAULT_DUMMY = "Once upon a time, in a land of code, there was a sleeping unicorn."
 
-# Configure standard logging
-logging.basicConfig(level=logging.INFO, format="%(message)s")
-logger = logging.getLogger(__name__)
+class DummyQuotaError(openai.error.RateLimitError):
+    pass
 
-def _call_openai_sync(prompt: str) -> str:
-    """Blocking call to OpenAI ChatCompletion; returns the story text."""
-    resp = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}]
+
+class DummyOtherError(openai.error.OpenAIError):
+    pass
+
+
+@pytest.fixture(autouse=True)
+def patch_openai(monkeypatch):
+    calls = {}
+
+    def fake_create(*args, **kwargs):
+        if kwargs.get("mock"):
+            return "MOCKED"
+        mode = calls.get("mode")
+        if mode == "quota":
+            raise DummyQuotaError("insufficient_quota")
+        if mode == "other":
+            raise DummyOtherError("something went wrong")
+        class Choice:
+            message = type("M", (), {"content":
+                "A unicorn snoozed under the stars."
+            })
+        return type("R", (), {"choices": [Choice()]})
+
+    monkeypatch.setattr(
+        openai.ChatCompletion, "create", lambda *a, **k: fake_create(**k)
     )
-    return resp.choices[0].message.content.strip()
+    return calls
 
-async def generate_story(mock: bool) -> str:
-    """
-    Generate or mock a one-sentence unicorn bedtime story.
-    Exits with:
-      1 if API key is missing,
-      2 on quota errors,
-      3 on other OpenAI errors.
-    """
-    if mock:
-        logger.info("Mock mode enabled")
-        return DEFAULT_DUMMY
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        typer.echo("❌ OPENAI_API_KEY not set")
-        sys.exit(1)
+def test_quota_exceeded_message(patch_openai):
+    patch_openai["mode"] = "quota"
+    result = runner.invoke(example.app, ["--mock=False"])
+    assert result.exit_code == 2
+    assert (
+        "❌ Quota exceeded – please check your plan at "
+        "https://platform.openai.com/account/billing/plan"
+        in result.stdout
+    )
 
-    openai.api_key = api_key
-    prompt = "Write a one-sentence bedtime story about a unicorn."
 
-    try:
-        # Run blocking OpenAI call in thread to avoid blocking the event loop
-        story = await asyncio.get_event_loop().run_in_executor(
-            None, _call_openai_sync, prompt
-        )
-        return story
-    except Exception as e:
-        # Quota / rate-limit errors
-        if "insufficient_quota" in str(e) or isinstance(e, openai.error.RateLimitError):
-            typer.echo("❌ Quota exceeded – please check your plan at https://platform.openai.com/account/billing/plan")
-            sys.exit(2)
-        # Other OpenAI errors
-        typer.echo(f"API ERROR ▶ {e}")
-        sys.exit(3)
+def test_other_api_error(patch_openai):
+    patch_openai["mode"] = "other"
+    result = runner.invoke(example.app, [])
+    assert result.exit_code == 3
+    assert "API ERROR ▶" in result.stdout
 
-@app.command()
-def main(mock: bool = typer.Option(False, "--mock", help="Use a canned story without calling the API")):
-    """CLI entrypoint."""
-    story = asyncio.run(generate_story(mock))
-    typer.echo(story)
 
-if __name__ == "__main__":
-    app()
+def test_successful_response(patch_openai):
+    result = runner.invoke(example.app, ["--mock=False"])
+    assert result.exit_code == 0
+    assert "A unicorn snoozed under the stars." in result.stdout
+
+
+def test_mock_mode():
+    result = runner.invoke(example.app, ["--mock"])
+    assert result.exit_code == 0
+    assert (
+        "Once upon a time, in a land of code, "
+        "there was a sleeping unicorn."
+        in result.stdout
+    )

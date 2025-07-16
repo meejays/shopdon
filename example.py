@@ -50,7 +50,8 @@ async def generate_story(mock: bool) -> str:
     except Exception as e:
         # Quota / rate-limit errors
         if "insufficient_quota" in str(e) or isinstance(e, openai.error.RateLimitError):
-            typer.echo("❌ Quota exceeded – please check your plan at https://platform.openai.com/account/billing/plan")
+            typer.secho("❌ Quota exceeded – please check your plan at https://platform.openai.com/account/billing/plan", fg=typer.colors.RED)
+
             sys.exit(2)
         # Other OpenAI errors
         typer.echo(f"API ERROR ▶ {e}")
